@@ -1,0 +1,15 @@
+{
+  "name": "node-cmd-generator",
+  "version": "1.0.0",
+  "description": "node cmd generator",
+  "main": "bin/node-cmd",
+  "bin": {
+    "node-cmd": "./bin/node-cmd"
+  },
+  "author": "huangzt",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^2.9.0",
+    "fs-extra": "^2.0.0"
+  }
+}
