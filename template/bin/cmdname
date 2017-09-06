@@ -1,15 +1,17 @@
 #!/usr/bin/env node
-
-var program = require('commander');
-var fs = require('fs-extra');
-var os = require('os');
-var path = require('path');
-var readline = require('readline');
-var util = require('util');
+var ejs = require("ejs")
+var program = require("commander");
+var fs = require("fs-extra");
+var os = require("os");
+var path = require("path");
+var readline = require("readline");
+var util = require("util");
+var colors = require("colors");
+var _ = require("lodash");
 
 var _exit = process.exit;
 var eol = os.EOL;
-var pkg = require('../package.json');
+var pkg = require("../package.json");
 
 var version = pkg.version;
 
@@ -18,8 +20,13 @@ var version = pkg.version;
 process.exit = exit;
 
 program
-	.version(version, '    --version')
-	.option('-f, --force', 'force on non-empty directory')
+	.version(version, "    --version")
+	.option("-f, --force", "force on non-empty directory")
+	.option("-d, --dir <string>", "directory specified")
+	.option("-c, --cmdname <string>", "cmdname specified")
+	.option("-p, --projectname <string>", "cmd project name")
+	.option("-d, --desc <string>", "cmd project description")
+	//...
 	.parse(process.argv);
 
 if (!exit.exited) {
@@ -28,21 +35,21 @@ if (!exit.exited) {
 
 function main() {
 	// Path
-	var destinationPath = program.args.shift() || '.';
+	var destinationPath = program.dir || ".";
 
 	// App name
 	var appName = path.basename(path.resolve(destinationPath));
 
-	isDirectoryEmpty(destinationPath, function(empty) {
+	isDirectoryEmpty(destinationPath, function (empty) {
 		if (empty || program.force) {
 			createApplication(appName, destinationPath);
 		} else {
-			confirm('destination is not empty, continue? [y/N] ', function(ok) {
+			confirm("destination is not empty, continue? [y/N] ", function (ok) {
 				if (ok) {
 					process.stdin.destroy();
 					createApplication(appName, destinationPath);
 				} else {
-					console.error('aborting');
+					console.error("aborting");
 					exit(1);
 				}
 			});
@@ -51,13 +58,61 @@ function main() {
 }
 
 function createApplication(app_name, destinationPath) {
-	fs.copy(path.join(__dirname, '..', 'template'), destinationPath, function(err) {
+	if (program.dir && program.dir !== ".") {
+		fs.mkdir(destinationPath, function (err) {
+			if (err) {
+				console.error("mkdir destinationPath: ", err);
+			} else {
+				createFiles(destinationPath);
+			}
+		});
+	} else {
+		createFiles(destinationPath);
+	}
+}
+
+function createFiles(destinationPath) {
+	var params = _.extend({
+		cmdname: "cmdname",
+		projectname: "project name",
+		desc: "project description"
+	}, program);
+
+	var gitignorePath = "./.gitignore";
+	var packagejsonPath = "./package.json";
+	var readmePath = "./README.md";
+
+	fs.mkdir(path.join(destinationPath, "bin"), function (err) {
 		if (err) {
-			console.log(err);
+			console.error("mkdir bin: ", err);
 		} else {
-			console.log('Successfull! npm install, and start your development.');
+			fs.mkdir(path.join(destinationPath, "template"), function (err) {
+				if (err) {
+					console.error("mkdir template: ", err);
+				} else {
+					writeFile("./bin/" + params.cmdname, "./bin/cmdname");
+					writeFile(gitignorePath, gitignorePath);
+					writeFile(packagejsonPath, packagejsonPath, params);
+					writeFile(readmePath, readmePath);
+					//modify by your logic
+					fs.copy(path.join(__dirname, "..", "template/template"), path.join(destinationPath, "template"), function (err) {
+						if (err) {
+							console.log("copy template: ", err);
+						} else {
+							console.log("Successfull! Create your template file and start development!".green);
+						}
+					});
+				}
+			})
 		}
 	});
+}
+
+// destFile以目标地址为参照
+// srcFile以源地址template目录为参照
+function writeFile(destFile, srcFile, data) {
+	var srcFileContent = fs.readFileSync(path.join(__dirname, "../template", srcFile)).toString();
+	fs.writeFileSync(path.join(program.dir || ".", destFile), data ? ejs.render(srcFileContent, data) : srcFileContent);
 }
 
 function confirm(msg, callback) {
@@ -66,7 +121,7 @@ function confirm(msg, callback) {
 		output: process.stdout
 	});
 
-	rl.question(msg, function(input) {
+	rl.question(msg, function (input) {
 		rl.close();
 		callback(/^y|yes|ok|true$/i.test(input));
 	});
@@ -89,10 +144,10 @@ function exit(code) {
 
 	exit.exited = true;
 
-	streams.forEach(function(stream) {
+	streams.forEach(function (stream) {
 		// submit empty write request and wait for completion
 		draining += 1;
-		stream.write('', done);
+		stream.write("", done);
 	});
 
 	done();
@@ -106,8 +161,8 @@ function exit(code) {
  */
 
 function isDirectoryEmpty(path, fn) {
-	fs.readdir(path, function(err, files) {
-		if (err && 'ENOENT' != err.code) throw err;
+	fs.readdir(path, function (err, files) {
+		if (err && "ENOENT" != err.code) throw err;
 		fn(!files || !files.length);
 	});
 }
