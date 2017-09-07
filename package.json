@@ -1,6 +1,6 @@
 {
     "name": "node-cmd-generator",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "description": "node cmd generator",
     "main": "bin/node-cmd",
     "bin": {

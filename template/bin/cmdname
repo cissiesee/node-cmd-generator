@@ -14,6 +14,7 @@ var eol = os.EOL;
 var pkg = require("../package.json");
 
 var version = pkg.version;
+var programOptions;
 
 // Re-assign process.exit because of commander
 // TODO: Switch to a different command framework
@@ -23,9 +24,6 @@ program
 	.version(version, "    --version")
 	.option("-f, --force", "force on non-empty directory")
 	.option("-d, --dir <string>", "directory specified")
-	.option("-c, --cmdname <string>", "cmdname specified")
-	.option("-p, --projectname <string>", "cmd project name")
-	.option("-d, --desc <string>", "cmd project description")
 	//...
 	.parse(process.argv);
 
@@ -34,20 +32,22 @@ if (!exit.exited) {
 }
 
 function main() {
-	// Path
-	var destinationPath = program.dir || ".";
+
+	programOptions = _.extend({
+		dir: "."
+	}, program);
 
 	// App name
-	var appName = path.basename(path.resolve(destinationPath));
+	var appName = path.basename(path.resolve(programOptions.dir));
 
-	isDirectoryEmpty(destinationPath, function (empty) {
+	isDirectoryEmpty(programOptions.dir, function (empty) {
 		if (empty || program.force) {
-			createApplication(appName, destinationPath);
+			createApplication(appName);
 		} else {
 			confirm("destination is not empty, continue? [y/N] ", function (ok) {
 				if (ok) {
 					process.stdin.destroy();
-					createApplication(appName, destinationPath);
+					createApplication(appName);
 				} else {
 					console.error("aborting");
 					exit(1);
@@ -57,54 +57,48 @@ function main() {
 	});
 }
 
-function createApplication(app_name, destinationPath) {
+function createApplication(app_name) {
 	if (program.dir && program.dir !== ".") {
-		fs.mkdir(destinationPath, function (err) {
+		mkdir(".", function (err) {
 			if (err) {
 				console.error("mkdir destinationPath: ", err);
 			} else {
-				createFiles(destinationPath);
+				createFiles();
 			}
 		});
 	} else {
-		createFiles(destinationPath);
+		createFiles();
 	}
 }
 
-function createFiles(destinationPath) {
+function createFiles() {
 	var params = _.extend({
-		cmdname: "cmdname",
-		projectname: "project name",
-		desc: "project description"
+		//...
 	}, program);
 
-	var gitignorePath = "./.gitignore";
-	var packagejsonPath = "./package.json";
-	var readmePath = "./README.md";
-
-	fs.mkdir(path.join(destinationPath, "bin"), function (err) {
+	//modify by your logic
+	//writeFile(readmePath, readmePath);
+	copyFile(".", ".", function (err) {
 		if (err) {
-			console.error("mkdir bin: ", err);
+			console.log("copy template: ", err);
 		} else {
-			fs.mkdir(path.join(destinationPath, "template"), function (err) {
-				if (err) {
-					console.error("mkdir template: ", err);
-				} else {
-					writeFile("./bin/" + params.cmdname, "./bin/cmdname");
-					writeFile(gitignorePath, gitignorePath);
-					writeFile(packagejsonPath, packagejsonPath, params);
-					writeFile(readmePath, readmePath);
-					//modify by your logic
-					fs.copy(path.join(__dirname, "..", "template/template"), path.join(destinationPath, "template"), function (err) {
-						if (err) {
-							console.log("copy template: ", err);
-						} else {
-							console.log("Successfull! Create your template file and start development!".green);
-						}
-					});
-				}
-			})
+			console.log("Successfull! Structure is created!".green);
 		}
+	});
+}
+
+// dir以目标根地址为参照
+function mkdir(dir, callback) {
+	fs.mkdir(path.join(programOptions.dir, dir), function (err) {
+		callback(err);
+	});
+}
+
+// destFile以目标根地址为参照
+// srcFile以源地址template目录为参照
+function copyFile(destFile, srcFile, callback) {
+	fs.copy(path.join(__dirname, "..", "template", srcFile), path.join(destinationPath, destFile), function (err) {
+		callback(err);
 	});
 }
 
@@ -112,7 +106,14 @@ function createFiles(destinationPath) {
 // srcFile以源地址template目录为参照
 function writeFile(destFile, srcFile, data) {
 	var srcFileContent = fs.readFileSync(path.join(__dirname, "../template", srcFile)).toString();
-	fs.writeFileSync(path.join(program.dir || ".", destFile), data ? ejs.render(srcFileContent, data) : srcFileContent);
+	fs.writeFileSync(path.join(programOptions.dir, destFile), data ? ejs.render(srcFileContent, data) : srcFileContent);
+}
+
+// destFile以目标地址为参照
+function isExisted(destFile, callback) {
+	fs.exists(path.join(programOptions.dir, destFile), function (isFileExisted) {
+		callback(isFileExisted);
+	});
 }
 
 function confirm(msg, callback) {
